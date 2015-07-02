@@ -58,24 +58,10 @@ public class LightblueEndpoint extends DefaultEndpoint {
     public static String buildUriParameters(AbstractLightblueDataRequest request) {
         StringBuffer builder = new StringBuffer("?");
 
-        //TODO Not ideal, find better way.
         String operation;
-        if (request instanceof DataInsertRequest) {
-            operation = "insert";
-        }
-        else if (request instanceof DataFindRequest) {
-            operation = "find";
-        }
-        else if (request instanceof DataUpdateRequest) {
-            operation = "update";
-        }
-        else if (request instanceof DataSaveRequest) {
-            operation = "save";
-        }
-        else if (request instanceof DataDeleteRequest) {
-            operation = "delete";
-        }
-        else {
+        if (request instanceof AbstractLightblueDataRequest) {
+            operation = request.getOperationPathParam();
+        } else {
             throw new UnsupportedOperationException("Request type not supported: " + request.getClass());
         }
 
