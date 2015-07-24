@@ -37,6 +37,10 @@
 
   <name>lightblue-camel: ${project.groupId}|${project.artifactId}</name>
 
+  <prerequisites>
+    <maven>3.0</maven>
+  </prerequisites>
+
   <licenses>
     <license>
       <name>GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007</name>
