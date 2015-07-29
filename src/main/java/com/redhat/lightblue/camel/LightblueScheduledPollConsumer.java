@@ -4,6 +4,7 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.impl.ScheduledPollConsumer;
 
+import com.redhat.lightblue.client.response.LightblueErrorResponseException;
 import com.redhat.lightblue.client.response.LightblueResponse;
 
 /**
@@ -21,21 +22,30 @@ public class LightblueScheduledPollConsumer extends ScheduledPollConsumer {
     @Override
     protected int poll() throws Exception {
         Exchange exchange = endpoint.createExchange();
-
-        // create a message body
-        LightblueResponse response = endpoint.getLightblueClient().data(endpoint.getLightbluePollingRequest());
-        exchange.getIn().setBody(response);
+        LightblueResponse response = null;
 
         try {
-            // send message to next processor in the route
+            response = endpoint.getLightblueClient().data(endpoint.getLightbluePollingRequest());
+            if (response.hasError()) {
+                exchange.setException(new LightblueErrorResponseException("LightblueScheduledPollConsumer: returned in response: "
+                        + response.getText()));
+            } else {
+                exchange.getIn().setBody(response);
+            }
+        } catch (Exception e) {
+            exchange.setException(new LightblueErrorResponseException("LightblueScheduledPollConsumer: returned in response: "
+                    + e.getMessage()));
+        }
+
+        try {
+            // send message to next processor in the route, even if there was an exception, incase route has its own exception handling
             getProcessor().process(exchange);
-            return response.parseMatchCount(); // number of messages polled
         } finally {
             // log exception if an exception occurred and was not handled
             if (exchange.getException() != null) {
                 getExceptionHandler().handleException("Error processing exchange", exchange, exchange.getException());
             }
         }
+        return (response == null) ? 0 : response.parseMatchCount();
     }
-
 }

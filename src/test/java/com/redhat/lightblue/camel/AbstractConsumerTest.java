@@ -1,14 +1,10 @@
 package com.redhat.lightblue.camel;
 
-import static com.redhat.lightblue.util.test.AbstractJsonNodeTest.loadJsonNode;
-
 import org.apache.camel.CamelContext;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Test;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.redhat.lightblue.client.expression.query.ValueQuery;
@@ -17,25 +13,19 @@ import com.redhat.lightblue.client.projection.FieldProjection;
 import com.redhat.lightblue.client.request.data.DataFindRequest;
 
 /**
- * Test for {@link OutboundTestRoute}.
+ * Test for {@link ConsumerTestRoute}.
  * 
  * @author mpatercz
  *
  */
-public class OutboundTest extends AbstractLightblueClientCRUDController {
+public abstract class AbstractConsumerTest extends AbstractLightblueClientCRUDController {
 
-    public OutboundTest() throws Exception {
+    public AbstractConsumerTest() throws Exception {
         super();
     }
 
-    @Override
-    public JsonNode[] getMetadataJsonNodes() throws Exception {
-        return new JsonNode[]{loadJsonNode("./metadata/event.json"), loadJsonNode("./metadata/user.json")};
-    }
-
     CamelContext context;
-    MockEndpoint eventResultEndpoint;
-    MockEndpoint userResultEndpoint;
+    MockEndpoint eventResultEndpoint, userResultEndpoint, exceptionEndpoint;
 
     @Before
     public void setupCamel() throws Exception {
@@ -58,24 +48,12 @@ public class OutboundTest extends AbstractLightblueClientCRUDController {
 
         userResultEndpoint = context.getEndpoint("mock:userResult", MockEndpoint.class);
         eventResultEndpoint = context.getEndpoint("mock:eventResult", MockEndpoint.class);
+        exceptionEndpoint = context.getEndpoint("mock:exception", MockEndpoint.class);
 
         // start camel
         context.start();
     }
 
-    @Test
-    public void testMessageFromLightblue() throws Exception {
-        // load events
-        loadData("event", "1.0.0", "./data/events.json");
-        loadData("user", "1.0.0", "./data/users.json");
-
-        userResultEndpoint.expectedBodiesReceived("<Users xmlns=\"\"><item><firstName>Taylor</firstName><lastName>Swift</lastName></item></Users>");
-        eventResultEndpoint
-                .expectedBodiesReceived("<Events xmlns=\"\"><item><name>Something happened</name><processed>false</processed><_id>2</_id></item><item><name>Something else happened</name><processed>false</processed><_id>3</_id></item></Events>");
-        userResultEndpoint.assertIsSatisfied();
-        eventResultEndpoint.assertIsSatisfied();
-
-    }
     @After
     public void tearDownCamel() throws Exception {
         context.stop();
