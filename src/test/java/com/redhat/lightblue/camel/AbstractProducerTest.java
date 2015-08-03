@@ -18,7 +18,7 @@ import com.google.inject.Provides;
 import com.redhat.lightblue.client.integration.test.AbstractLightblueClientCRUDController;
 
 /**
- * Test for {@link ProducerTestRoute}.
+ * Test for {@link SampleProducerRoute}.
  * 
  * @author mpatercz
  *
@@ -71,7 +71,7 @@ public abstract class AbstractProducerTest extends AbstractLightblueClientCRUDCo
         @Provides
         Set<RoutesBuilder> routes(Injector injector) {
             Set<RoutesBuilder> set = new HashSet<RoutesBuilder>();
-            set.add(new ProducerTestRoute());
+            set.add(new SampleProducerRoute());
             return set;
         }
 

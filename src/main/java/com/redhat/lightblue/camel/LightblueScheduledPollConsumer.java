@@ -4,7 +4,7 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.impl.ScheduledPollConsumer;
 
-import com.redhat.lightblue.client.response.LightblueErrorResponseException;
+import com.redhat.lightblue.client.response.LightblueException;
 import com.redhat.lightblue.client.response.LightblueResponse;
 
 /**
@@ -26,26 +26,18 @@ public class LightblueScheduledPollConsumer extends ScheduledPollConsumer {
 
         try {
             response = endpoint.getLightblueClient().data(endpoint.getLightbluePollingRequest());
-            if (response.hasError()) {
-                exchange.setException(new LightblueErrorResponseException("LightblueScheduledPollConsumer: returned in response: "
-                        + response.getText()));
-            } else {
-                exchange.getIn().setBody(response);
-            }
+            exchange.getIn().setBody(response);
+        } catch (LightblueException e) {
+            exchange.getIn().setBody(e.getLightblueResponse());
+            exchange.setException(e);
         } catch (Exception e) {
-            exchange.setException(new LightblueErrorResponseException("LightblueScheduledPollConsumer: returned in response: "
-                    + e.getMessage()));
+            exchange.setException(
+                    new Exception("Unexpected exception", e));
         }
 
-        try {
-            // send message to next processor in the route, even if there was an exception, incase route has its own exception handling
-            getProcessor().process(exchange);
-        } finally {
-            // log exception if an exception occurred and was not handled
-            if (exchange.getException() != null) {
-                getExceptionHandler().handleException("Error processing exchange", exchange, exchange.getException());
-            }
-        }
+        //  In case route has its own exception handling send message to next processor in the route.
+        getProcessor().process(exchange);
+
         return (response == null) ? 0 : response.parseMatchCount();
     }
 }

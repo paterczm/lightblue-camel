@@ -20,7 +20,7 @@ import com.redhat.lightblue.client.projection.FieldProjection;
 import com.redhat.lightblue.client.request.data.DataFindRequest;
 
 /**
- * Test for {@link ConsumerTestRoute}.
+ * Test for {@link SampleConsumerRoute}.
  * 
  * @author mpatercz
  *
@@ -80,7 +80,7 @@ public abstract class AbstractConsumerTest extends AbstractLightblueClientCRUDCo
         @Provides
         Set<RoutesBuilder> routes(Injector injector) {
             Set<RoutesBuilder> set = new HashSet<RoutesBuilder>();
-            set.add(new ConsumerTestRoute());
+            set.add(new SampleConsumerRoute());
             return set;
         }
 
