@@ -30,7 +30,9 @@ public class SimpleProducerTest extends AbstractProducerTest {
 
     @Override
     public JsonNode[] getMetadataJsonNodes() throws Exception {
-        return new JsonNode[] { loadJsonNode("./metadata/user.json") };
+        return new JsonNode[] { 
+                loadJsonNode("./metadata/user.json") 
+        };
     }
 
     @Before
@@ -53,6 +55,7 @@ public class SimpleProducerTest extends AbstractProducerTest {
 
         resultEndpoint.expectedMinimumMessageCount(1);
         resultEndpoint.assertIsSatisfied();
+
         exceptionEndpoint.expectedMessageCount(0);
         exceptionEndpoint.assertIsSatisfied();
     }

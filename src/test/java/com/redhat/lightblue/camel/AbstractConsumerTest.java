@@ -1,12 +1,19 @@
 package com.redhat.lightblue.camel;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.apache.camel.CamelContext;
+import org.apache.camel.RoutesBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
+import org.apache.camel.guice.CamelModule;
 import org.junit.After;
 import org.junit.Before;
 
+import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.google.inject.Provides;
 import com.redhat.lightblue.client.expression.query.ValueQuery;
 import com.redhat.lightblue.client.integration.test.AbstractLightblueClientCRUDController;
 import com.redhat.lightblue.client.projection.FieldProjection;
@@ -20,12 +27,14 @@ import com.redhat.lightblue.client.request.data.DataFindRequest;
  */
 public abstract class AbstractConsumerTest extends AbstractLightblueClientCRUDController {
 
+    private CamelContext context;
+    protected MockEndpoint eventResultEndpoint;
+    protected MockEndpoint userResultEndpoint;
+    protected MockEndpoint exceptionEndpoint;
+
     public AbstractConsumerTest() throws Exception {
         super();
     }
-
-    CamelContext context;
-    MockEndpoint eventResultEndpoint, userResultEndpoint, exceptionEndpoint;
 
     @Before
     public void setupCamel() throws Exception {
@@ -41,7 +50,11 @@ public abstract class AbstractConsumerTest extends AbstractLightblueClientCRUDCo
         requestMap.put("userPoller", userFindRequest);
 
         // init guice and register the client and polling request
-        Injector injector = Guice.createInjector(new TestCamelModule(getLightblueClient(), requestMap));
+        Injector injector = Guice.createInjector(
+                new CamelModule(),
+                new LightblueModule(getLightblueClient(), requestMap),
+                new ConsumerRouteModule()
+        );
 
         // init camel context
         context = injector.getInstance(CamelContext.class);
@@ -57,6 +70,20 @@ public abstract class AbstractConsumerTest extends AbstractLightblueClientCRUDCo
     @After
     public void tearDownCamel() throws Exception {
         context.stop();
+    }
+
+    private static class ConsumerRouteModule extends AbstractModule {
+
+        @Override
+        protected void configure() {}
+
+        @Provides
+        Set<RoutesBuilder> routes(Injector injector) {
+            Set<RoutesBuilder> set = new HashSet<RoutesBuilder>();
+            set.add(new ConsumerTestRoute());
+            return set;
+        }
+
     }
 
 }
