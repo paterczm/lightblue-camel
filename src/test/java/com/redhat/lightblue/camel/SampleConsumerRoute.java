@@ -6,14 +6,15 @@ import com.redhat.lightblue.camel.model.Event;
 import com.redhat.lightblue.camel.model.User;
 import com.redhat.lightblue.camel.utils.JacksonXmlDataFormat;
 import com.redhat.lightblue.camel.utils.LightblueResponseTransformer;
-import com.redhat.lightblue.client.response.LightblueErrorResponseException;
+import com.redhat.lightblue.client.response.LightblueException;
 
-public class ConsumerTestRoute extends RouteBuilder {
+public class SampleConsumerRoute extends RouteBuilder {
     @Override
     public void configure() throws Exception {
 
-        onException(LightblueErrorResponseException.class)
-            .bean(new FailureHandler())
+        onException(LightblueException.class)
+            .transform(simple("${body.getText}"))
+            .to("mock:exception")
             .handled(true);
 
         from("lightblue://eventPoller?delay=100000")

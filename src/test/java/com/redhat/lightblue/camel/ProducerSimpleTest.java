@@ -17,20 +17,22 @@ import com.redhat.lightblue.client.projection.FieldProjection;
 import com.redhat.lightblue.client.request.data.DataFindRequest;
 
 /**
- * Test for {@link ProducerTestRoute}.
+ * Test for {@link SampleProducerRoute}.
  * 
  * @author mpatercz
  *
  */
-public class SimpleProducerTest extends AbstractProducerTest {
+public class ProducerSimpleTest extends AbstractProducerTest {
 
-    public SimpleProducerTest() throws Exception {
+    public ProducerSimpleTest() throws Exception {
         super();
     }
 
     @Override
     public JsonNode[] getMetadataJsonNodes() throws Exception {
-        return new JsonNode[] { loadJsonNode("./metadata/user.json") };
+        return new JsonNode[] { 
+                loadJsonNode("./metadata/user.json") 
+        };
     }
 
     @Before
@@ -40,9 +42,17 @@ public class SimpleProducerTest extends AbstractProducerTest {
 
     @Test
     public void testMessageToLightblue() throws Exception {
+        //setup asserts
+        resultEndpoint.expectedMessageCount(1);
+        //cannot verify the string value of the body as elements move.
+
+        exceptionEndpoint.expectedMessageCount(0);
+
+        //Run tests
         String message = Resources.toString(Resources.getResource("./data/user-message.xml"), Charsets.UTF_8);
         template.sendBody(message);
 
+        //Verify asserts
         DataFindRequest findRequest = new DataFindRequest("user", null);
         findRequest.where(ValueQuery.withValue("objectType = user"));
         findRequest.select(FieldProjection.includeField("*"));
@@ -51,9 +61,7 @@ public class SimpleProducerTest extends AbstractProducerTest {
         Assert.assertNotNull(users);
         Assert.assertEquals(2, users.length);
 
-        resultEndpoint.expectedMinimumMessageCount(1);
         resultEndpoint.assertIsSatisfied();
-        exceptionEndpoint.expectedMessageCount(0);
         exceptionEndpoint.assertIsSatisfied();
     }
 

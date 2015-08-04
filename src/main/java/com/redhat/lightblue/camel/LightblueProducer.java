@@ -5,7 +5,7 @@ import org.apache.camel.impl.DefaultProducer;
 
 import com.redhat.lightblue.client.request.AbstractLightblueDataRequest;
 import com.redhat.lightblue.client.request.LightblueRequest;
-import com.redhat.lightblue.client.response.LightblueErrorResponseException;
+import com.redhat.lightblue.client.response.LightblueException;
 import com.redhat.lightblue.client.response.LightblueResponse;
 
 /**
@@ -26,18 +26,13 @@ public class LightblueProducer extends DefaultProducer {
 
         try {
             LightblueResponse response = endpoint.getLightblueClient().data(req);
-            if (response.hasError()) {
-                exchange.setException(new LightblueErrorResponseException("LightblueProducer:Error returned in response: "
-                        + response.getText()));
-            } else {
-                exchange.getOut().setBody(response);
-            }
+            exchange.getIn().setBody(response);
+        } catch (LightblueException e) {
+            exchange.getIn().setBody(e.getLightblueResponse());
+            exchange.setException(e);
         } catch (Exception e) {
-            /*
-             * wrap all run time exceptions into LightblueErrorResponseException so routes are shielded from client errors and have to
-             * handle only one type
-             */
-            exchange.setException(new LightblueErrorResponseException(e));
+            exchange.setException(
+                    new Exception("Unexpected exception", e));
         }
     }
 
