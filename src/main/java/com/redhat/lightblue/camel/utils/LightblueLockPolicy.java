@@ -53,6 +53,8 @@ public class LightblueLockPolicy implements Policy {
                     processor.process(exchange);
                     lock.release(resourceId);
                 }
+
+                routeContext.getRoute().removeHeader(LOCK_RESOURCE_ID);
             }
         };
 
