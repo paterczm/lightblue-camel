@@ -6,6 +6,7 @@ import com.redhat.lightblue.client.request.data.DataUpdateRequest;
 /**
  * Converts {@link Update} instances into a lightblue update request.
  */
+@Deprecated
 public class LightblueUpdateRequestFactory extends LightblueRequestFactory<DataUpdateRequest> {
 
     public LightblueUpdateRequestFactory() {
