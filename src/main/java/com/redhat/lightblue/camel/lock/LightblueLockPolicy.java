@@ -1,4 +1,4 @@
-package com.redhat.lightblue.camel.utils;
+package com.redhat.lightblue.camel.lock;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Expression;
@@ -13,7 +13,8 @@ import org.apache.camel.spi.RouteContext;
 import com.redhat.lightblue.client.Locking;
 
 /**
- *
+ * Creates a lock (aka. acquire) in lightblue for each Exchange and then unlocks (aka. release) when finished.
+ * If a lock cannot be acquired, then {@link Processor} will be skipped over.
  *
  * @author dcrissman
  */
