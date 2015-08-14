@@ -8,6 +8,7 @@ import com.redhat.lightblue.client.projection.FieldProjection;
 import com.redhat.lightblue.client.projection.Projection;
 import com.redhat.lightblue.client.request.LightblueRequest;
 
+@Deprecated
 public abstract class LightblueRequestFactory<R extends LightblueRequest> implements Processor {
 
     public static final String HEADER_ENTITY_NAME = "entityName";

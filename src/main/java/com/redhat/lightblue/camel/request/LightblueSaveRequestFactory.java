@@ -5,6 +5,7 @@ import com.redhat.lightblue.client.request.data.DataSaveRequest;
 /**
  * Converts Objects into a lightblue save request.
  */
+@Deprecated
 public class LightblueSaveRequestFactory extends LightblueRequestFactory<DataSaveRequest> {
 
     public LightblueSaveRequestFactory() {
