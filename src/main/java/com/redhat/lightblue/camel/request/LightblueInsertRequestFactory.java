@@ -5,6 +5,7 @@ import com.redhat.lightblue.client.request.data.DataInsertRequest;
 /**
  * Converts Objects into a lightblue insert request.
  */
+@Deprecated
 public class LightblueInsertRequestFactory extends LightblueRequestFactory<DataInsertRequest> {
 
     public LightblueInsertRequestFactory() {
