@@ -9,17 +9,24 @@ import com.redhat.lightblue.client.response.LightblueException;
 
 public class LightbluePingPredicate implements Predicate {
 
-    private final Locking lock;
-    private final Expression expression;
+    private final Expression lockExpression;
+    private final Expression resourceExpression;
 
-    public LightbluePingPredicate(Locking lock, Expression expression) {
-        this.lock = lock;
-        this.expression = expression;
+    /**
+     * @param lockExpression - {@link Expression} to obtain a Lightblue {@link Locking} instance.
+     * @param resourceExpression - {@link Expression} for determining the resourceId for a given Exchange.
+     */
+    public LightbluePingPredicate(Expression lockExpression, Expression resourceExpression) {
+        this.lockExpression = lockExpression;
+        this.resourceExpression = resourceExpression;
     }
 
     @Override
     public boolean matches(Exchange exchange) {
-        String resourceID = expression.evaluate(exchange, String.class);
+        Locking lock = lockExpression.evaluate(exchange, Locking.class);
+        String resourceID = resourceExpression.evaluate(exchange, String.class);
+
+        //TODO NPEs
 
         try {
             return lock.ping(resourceID);

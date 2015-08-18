@@ -22,16 +22,16 @@ public class LightblueLockPolicy implements Policy {
 
     public final static String LOCK_RESOURCE_ID = "LOCK_RESOURCE_ID";
 
-    private final Locking lock;
-    private final Expression expression;
+    private final Expression lockExpression;
+    private final Expression resourceExpression;
 
     /**
-     * @param lock - Lightblue {@link Locking}
-     * @param expression - {@link Expression} for determining the resourceId for a given Exchange.
+     * @param lockExpression - {@link Expression} to obtain a Lightblue {@link Locking} instance.
+     * @param resourceExpression - {@link Expression} for determining the resourceId for a given Exchange.
      */
-    public LightblueLockPolicy(Locking lock, Expression expression) {
-        this.lock = lock;
-        this.expression = expression;
+    public LightblueLockPolicy(Expression lockExpression, Expression resourceExpression) {
+        this.lockExpression = lockExpression;
+        this.resourceExpression = resourceExpression;
     }
 
     @Override
@@ -41,24 +41,36 @@ public class LightblueLockPolicy implements Policy {
 
     @Override
     public Processor wrap(final RouteContext routeContext, final Processor processor) {
-        final ExpressionDefinition red = ExpressionNodeHelper.toExpressionDefinition(expression);
-        final Expression routeExpression = red.createExpression(routeContext);
+        final Expression routeLockExpression = createRouteExpression(routeContext, lockExpression);
+        final Expression routeResourceExpression = createRouteExpression(routeContext, resourceExpression);
 
         return new Processor() {
             @Override
             public void process(Exchange exchange) throws Exception {
-                final String resourceId = routeExpression.evaluate(exchange, String.class);
+                final Locking lock = routeLockExpression.evaluate(exchange, Locking.class);
+                final String resourceId = routeResourceExpression.evaluate(exchange, String.class);
+
+                //TODO NPEs
+
                 routeContext.getRoute().setHeader(LOCK_RESOURCE_ID, new ConstantExpression(resourceId));
 
                 if (lock.acquire(resourceId)) {
                     processor.process(exchange);
                     lock.release(resourceId);
                 }
+                else{
+                    routeContext.getRoute().stop();
+                }
 
                 routeContext.getRoute().removeHeader(LOCK_RESOURCE_ID);
             }
         };
 
+    }
+
+    private Expression createRouteExpression(final RouteContext routeContext, final Expression expression){
+        ExpressionDefinition red = ExpressionNodeHelper.toExpressionDefinition(expression);
+        return red.createExpression(routeContext);
     }
 
 }
