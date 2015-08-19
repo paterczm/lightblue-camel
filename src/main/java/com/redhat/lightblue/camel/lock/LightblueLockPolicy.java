@@ -25,14 +25,27 @@ public class LightblueLockPolicy implements Policy {
 
     private final Expression lockExpression;
     private final Expression resourceExpression;
+    private final Long ttl;
 
     /**
+     * Uses the default ttl.
      * @param lockExpression - {@link Expression} to obtain a Lightblue {@link Locking} instance.
      * @param resourceExpression - {@link Expression} for determining the resourceId for a given Exchange.
      */
     public LightblueLockPolicy(Expression lockExpression, Expression resourceExpression) {
+        this(lockExpression, resourceExpression, null);
+    }
+
+    /**
+     *
+     * @param lockExpression - {@link Expression} to obtain a Lightblue {@link Locking} instance.
+     * @param resourceExpression - {@link Expression} for determining the resourceId for a given Exchange.
+     * @param ttl - time to live for the lock
+     */
+    public LightblueLockPolicy(Expression lockExpression, Expression resourceExpression, Long ttl) {
         this.lockExpression = lockExpression;
         this.resourceExpression = resourceExpression;
+        this.ttl = ttl;
     }
 
     @Override
@@ -55,7 +68,7 @@ public class LightblueLockPolicy implements Policy {
 
                 routeContext.getRoute().setHeader(HEADER_LOCK_RESOURCE_ID, new ConstantExpression(resourceId));
 
-                if (lock.acquire(resourceId)) {
+                if (lock.acquire(resourceId, ttl)) {
                     try {
                         processor.process(exchange);
                     } finally {
