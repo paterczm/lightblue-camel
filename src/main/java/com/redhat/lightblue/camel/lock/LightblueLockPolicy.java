@@ -20,7 +20,8 @@ import com.redhat.lightblue.client.Locking;
  */
 public class LightblueLockPolicy implements Policy {
 
-    public final static String LOCK_RESOURCE_ID = "LOCK_RESOURCE_ID";
+    /** Header key that will contain the current lock name used. This can be useful for ping() operations if they are needed.  */
+    public final static String HEADER_LOCK_RESOURCE_ID = "LOCK_RESOURCE_ID";
 
     private final Expression lockExpression;
     private final Expression resourceExpression;
@@ -52,17 +53,20 @@ public class LightblueLockPolicy implements Policy {
 
                 //TODO NPEs
 
-                routeContext.getRoute().setHeader(LOCK_RESOURCE_ID, new ConstantExpression(resourceId));
+                routeContext.getRoute().setHeader(HEADER_LOCK_RESOURCE_ID, new ConstantExpression(resourceId));
 
                 if (lock.acquire(resourceId)) {
-                    processor.process(exchange);
-                    lock.release(resourceId);
+                    try {
+                        processor.process(exchange);
+                    } finally {
+                        lock.release(resourceId);
+                    }
                 }
                 else{
                     routeContext.getRoute().stop();
                 }
 
-                routeContext.getRoute().removeHeader(LOCK_RESOURCE_ID);
+                routeContext.getRoute().removeHeader(HEADER_LOCK_RESOURCE_ID);
             }
         };
 
