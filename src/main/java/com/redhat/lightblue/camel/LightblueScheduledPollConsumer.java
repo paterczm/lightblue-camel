@@ -26,6 +26,9 @@ public class LightblueScheduledPollConsumer extends ScheduledPollConsumer {
 
         try {
             response = endpoint.getLightblueClient().data(endpoint.getLightbluePollingRequest());
+            if (response.parseMatchCount() <= 0) {
+                return 0;
+            }
             exchange.getIn().setBody(response);
         } catch (LightblueException e) {
             exchange.getIn().setBody(e.getLightblueResponse());
