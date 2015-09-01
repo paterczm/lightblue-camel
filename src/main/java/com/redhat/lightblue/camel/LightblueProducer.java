@@ -22,7 +22,7 @@ public class LightblueProducer extends DefaultProducer {
 
     @Override
     public void process(Exchange exchange) throws Exception {
-        LightblueRequest req = (AbstractLightblueDataRequest) exchange.getIn().getBody();
+        LightblueRequest req = exchange.getIn().getBody(AbstractLightblueDataRequest.class);
 
         try {
             LightblueResponse response = endpoint.getLightblueClient().data(req);
