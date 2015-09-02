@@ -1,4 +1,4 @@
-package com.redhat.lightblue.camel.utils;
+package com.redhat.lightblue.camel.response;
 
 import org.apache.camel.Handler;
 
