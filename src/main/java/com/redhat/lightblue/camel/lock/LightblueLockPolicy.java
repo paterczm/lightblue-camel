@@ -5,10 +5,11 @@ import org.apache.camel.Expression;
 import org.apache.camel.Processor;
 import org.apache.camel.model.ExpressionNodeHelper;
 import org.apache.camel.model.ProcessorDefinition;
-import org.apache.camel.model.language.ConstantExpression;
 import org.apache.camel.model.language.ExpressionDefinition;
 import org.apache.camel.spi.Policy;
 import org.apache.camel.spi.RouteContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.redhat.lightblue.client.Locking;
 
@@ -19,6 +20,8 @@ import com.redhat.lightblue.client.Locking;
  * @author dcrissman
  */
 public class LightblueLockPolicy implements Policy {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(LightblueLockPolicy.class);
 
     /** Header key that will contain the current lock name used. This can be useful for ping() operations if they are needed.  */
     public final static String HEADER_LOCK_RESOURCE_ID = "LOCK_RESOURCE_ID";
@@ -66,20 +69,30 @@ public class LightblueLockPolicy implements Policy {
 
                 //TODO NPEs
 
-                routeContext.getRoute().setHeader(HEADER_LOCK_RESOURCE_ID, new ConstantExpression(resourceId));
+                exchange.getIn().setHeader(HEADER_LOCK_RESOURCE_ID, resourceId);
 
                 if (lock.acquire(resourceId, ttl)) {
                     try {
                         processor.process(exchange);
                     } finally {
-                        lock.release(resourceId);
+                        try{
+                            lock.release(resourceId);
+                        }
+                        catch (Exception e) {
+                            if (exchange.isFailed()) {
+                                //Let the original exception bubble up, but log this one.
+                                LOGGER.error("Unexpected error while the route is already in a failed state.", e);
+                            } else {
+                                throw e;
+                            }
+                        }
                     }
                 }
                 else{
                     throw new LightblueLockingException("Unable to acquire a lock for: " + resourceId);
                 }
 
-                routeContext.getRoute().removeHeader(HEADER_LOCK_RESOURCE_ID);
+                exchange.getIn().removeHeader(HEADER_LOCK_RESOURCE_ID);
             }
         };
 
