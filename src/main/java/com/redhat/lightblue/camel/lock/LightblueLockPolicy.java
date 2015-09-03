@@ -76,7 +76,7 @@ public class LightblueLockPolicy implements Policy {
                     }
                 }
                 else{
-                    routeContext.getRoute().stop();
+                    throw new LightblueLockingException("Unable to acquire a lock for: " + resourceId);
                 }
 
                 routeContext.getRoute().removeHeader(HEADER_LOCK_RESOURCE_ID);

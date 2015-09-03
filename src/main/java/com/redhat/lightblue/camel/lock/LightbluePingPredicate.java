@@ -31,8 +31,7 @@ public class LightbluePingPredicate implements Predicate {
         try {
             return lock.ping(resourceID);
         } catch (LightblueException e) {
-            //TODO handle
-            throw new RuntimeException("Unable to ping lock for resource id: " + resourceID, e);
+            throw new LightblueLockingException("Unable to ping lock for resource id: " + resourceID, e);
         }
     }
 
