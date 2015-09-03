@@ -13,8 +13,8 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
-import com.redhat.lightblue.client.expression.query.ValueQuery;
-import com.redhat.lightblue.client.projection.FieldProjection;
+import com.redhat.lightblue.client.Projection;
+import com.redhat.lightblue.client.Query;
 import com.redhat.lightblue.client.request.data.DataFindRequest;
 
 /**
@@ -53,12 +53,12 @@ public abstract class AbstractConsumerTest extends AbstractLightblueCamelTest {
         // polling request
         LightblueRequestsHolder requestMap = new LightblueRequestsHolder();
         DataFindRequest eventFindRequest = new DataFindRequest("event", "1.0.0");
-        eventFindRequest.where(ValueQuery.withValue("processed = false"));
-        eventFindRequest.select(FieldProjection.includeFieldRecursively("*"));
+        eventFindRequest.where(Query.withValue("processed = false"));
+        eventFindRequest.select(Projection.includeFieldRecursively("*"));
         requestMap.put("eventPoller", eventFindRequest);
         DataFindRequest userFindRequest = new DataFindRequest("user", "1.0.0");
-        userFindRequest.where(ValueQuery.withValue("firstName = Taylor"));
-        userFindRequest.select(FieldProjection.includeFieldRecursively("*"));
+        userFindRequest.where(Query.withValue("firstName = Taylor"));
+        userFindRequest.select(Projection.includeFieldRecursively("*"));
         requestMap.put("userPoller", userFindRequest);
 
         return requestMap;

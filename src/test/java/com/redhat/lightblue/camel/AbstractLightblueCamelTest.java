@@ -55,7 +55,9 @@ public abstract class AbstractLightblueCamelTest extends AbstractLightblueClient
 
     @After
     public void tearDownCamel() throws Exception {
-        context.stop();
+        if (context != null) {
+            context.stop();
+        }
     }
 
     /**
