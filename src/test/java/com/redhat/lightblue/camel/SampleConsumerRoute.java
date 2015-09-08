@@ -4,8 +4,8 @@ import org.apache.camel.builder.RouteBuilder;
 
 import com.redhat.lightblue.camel.model.Event;
 import com.redhat.lightblue.camel.model.User;
+import com.redhat.lightblue.camel.response.LightblueResponseTransformer;
 import com.redhat.lightblue.camel.utils.JacksonXmlDataFormat;
-import com.redhat.lightblue.camel.utils.LightblueResponseTransformer;
 import com.redhat.lightblue.client.response.LightblueException;
 
 public class SampleConsumerRoute extends RouteBuilder {
