@@ -12,13 +12,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import com.redhat.lightblue.camel.model.User;
-import com.redhat.lightblue.client.expression.query.ValueQuery;
-import com.redhat.lightblue.client.projection.FieldProjection;
+import com.redhat.lightblue.client.Projection;
+import com.redhat.lightblue.client.Query;
 import com.redhat.lightblue.client.request.data.DataFindRequest;
 
 /**
  * Test for {@link SampleProducerRoute}.
- * 
+ *
  * @author mpatercz
  *
  */
@@ -30,8 +30,8 @@ public class ProducerSimpleTest extends AbstractProducerTest {
 
     @Override
     public JsonNode[] getMetadataJsonNodes() throws Exception {
-        return new JsonNode[] { 
-                loadJsonNode("./metadata/user.json") 
+        return new JsonNode[] {
+                loadJsonNode("./metadata/user.json")
         };
     }
 
@@ -54,8 +54,8 @@ public class ProducerSimpleTest extends AbstractProducerTest {
 
         //Verify asserts
         DataFindRequest findRequest = new DataFindRequest("user", null);
-        findRequest.where(ValueQuery.withValue("objectType = user"));
-        findRequest.select(FieldProjection.includeField("*"));
+        findRequest.where(Query.withValue("objectType = user"));
+        findRequest.select(Projection.includeField("*"));
         User[] users = getLightblueClient().data(findRequest, User[].class);
 
         Assert.assertNotNull(users);
