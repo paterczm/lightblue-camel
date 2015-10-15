@@ -31,7 +31,7 @@ public class LightblueScheduledPollConsumer extends ScheduledPollConsumer {
             }
             exchange.getIn().setBody(response);
         } catch (LightblueException e) {
-            exchange.getIn().setBody(e.getLightblueResponse());
+            exchange.getIn().setBody(e.getLightblueResponse() == null ? e.getCause(): e.getLightblueResponse().getText());
             exchange.setException(e);
         } catch (Exception e) {
             exchange.setException(
