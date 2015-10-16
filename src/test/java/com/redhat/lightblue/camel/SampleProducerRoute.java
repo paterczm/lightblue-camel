@@ -12,7 +12,6 @@ public class SampleProducerRoute extends RouteBuilder {
     public void configure() throws Exception {
 
         onException(Exception.class)
-            .transform(simple("${body.toString()}"))
             .to("mock:exception")
             .handled(true);
 

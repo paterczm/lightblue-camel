@@ -3,6 +3,7 @@ package com.redhat.lightblue.camel;
 import org.apache.camel.Exchange;
 import org.apache.camel.impl.DefaultProducer;
 
+import com.redhat.lightblue.camel.exception.LightblueCamelProducerException;
 import com.redhat.lightblue.client.request.AbstractDataBulkRequest;
 import com.redhat.lightblue.client.request.AbstractLightblueDataRequest;
 import com.redhat.lightblue.client.request.AbstractLightblueMetadataRequest;
@@ -31,13 +32,10 @@ public class LightblueProducer extends DefaultProducer {
         try {
             Object response = sendRequest(req);
             exchange.getIn().setBody(response);
-        } catch (LightblueException e) {
-            exchange.getIn().setBody(e.getLightblueResponse() == null ? e.getCause(): e.getLightblueResponse().getText());
-            exchange.setException(e);
         } catch (Exception e) {
-            exchange.getIn().setBody(e.getMessage());
-            exchange.setException(
-                    new Exception("Unexpected exception", e));
+            // routing didn't start yet, so we can't expect camel to handle this error
+            // set exception on exchange and pass it to camel
+            exchange.setException(new LightblueCamelProducerException(e));
         }
     }
 
