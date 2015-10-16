@@ -13,7 +13,7 @@ public class SampleConsumerRoute extends RouteBuilder {
     public void configure() throws Exception {
 
         onException(LightblueException.class)
-            .transform(simple("${body.getText}"))
+            .transform(simple("${body.toString()}"))
             .to("mock:exception")
             .handled(true);
 

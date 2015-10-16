@@ -32,9 +32,10 @@ public class LightblueProducer extends DefaultProducer {
             Object response = sendRequest(req);
             exchange.getIn().setBody(response);
         } catch (LightblueException e) {
-            exchange.getIn().setBody(e.getLightblueResponse());
+            exchange.getIn().setBody(e.getLightblueResponse() == null ? e.getCause(): e.getLightblueResponse().getText());
             exchange.setException(e);
         } catch (Exception e) {
+            exchange.getIn().setBody(e.getMessage());
             exchange.setException(
                     new Exception("Unexpected exception", e));
         }
