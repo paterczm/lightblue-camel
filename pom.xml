@@ -71,6 +71,7 @@
     <sonar.jdbc.password>sonar</sonar.jdbc.password>
     <sonar.host.url>http://127.0.0.1:8080</sonar.host.url>
     <sonar.projectName>lightblue-camel</sonar.projectName>
+    <camel.version>2.16.0</camel.version>
   </properties>
 
   <dependencies>
@@ -78,14 +79,14 @@
     <dependency>
       <groupId>org.apache.camel</groupId>
       <artifactId>camel-core</artifactId>
-      <version>2.15.3</version>
+      <version>${camel.version}</version>
     </dependency>
     
     <!-- support camel documentation -->
     <dependency>
       <groupId>org.apache.camel</groupId>
       <artifactId>apt</artifactId>
-      <version>2.15.3</version>
+      <version>${camel.version}</version>
     </dependency>
     
     <dependency>
@@ -122,7 +123,7 @@
     <dependency>
       <groupId>org.apache.camel</groupId>
       <artifactId>camel-test</artifactId>
-      <version>2.15.3</version>
+      <version>${camel.version}</version>
       <scope>test</scope>
     </dependency>
     
