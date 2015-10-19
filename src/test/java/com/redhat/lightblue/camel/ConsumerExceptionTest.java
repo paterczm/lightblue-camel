@@ -1,8 +1,12 @@
 package com.redhat.lightblue.camel;
 
+import org.apache.camel.Exchange;
+import org.junit.Assert;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.redhat.lightblue.camel.exception.LightblueCamelConsumerException;
+import com.redhat.lightblue.client.response.LightblueException;
 
 /**
  * Test for {@link SampleConsumerRoute}.
@@ -29,10 +33,6 @@ public class ConsumerExceptionTest extends AbstractConsumerTest {
         userResultEndpoint.expectedMessageCount(0);
 
         exceptionEndpoint.expectedMessageCount(2);
-        exceptionEndpoint.expectedBodiesReceivedInAnyOrder(
-                "{\"status\":\"ERROR\",\"modifiedCount\":0,\"matchCount\":0,\"errors\":[{\"objectType\":\"error\",\"context\":\"rest/FindCommand/user/find(user:1.0.0)/getEntityMetadata(user:1.0.0)\",\"errorCode\":\"mongo-metadata:UnknownVersion\",\"msg\":\"user:1.0.0\"}]}",
-                "{\"status\":\"ERROR\",\"modifiedCount\":0,\"matchCount\":0,\"errors\":[{\"objectType\":\"error\",\"context\":\"rest/FindCommand/event/find(event:1.0.0)/getEntityMetadata(event:1.0.0)\",\"errorCode\":\"mongo-metadata:UnknownVersion\",\"msg\":\"event:1.0.0\"}]}"
-        );
 
         //Run tests
         //No need to do anything here, the poller will automatically run the queries defined in AbstractConsumerTest
@@ -41,6 +41,16 @@ public class ConsumerExceptionTest extends AbstractConsumerTest {
         eventResultEndpoint.assertIsSatisfied();
         userResultEndpoint.assertIsSatisfied();
         exceptionEndpoint.assertIsSatisfied();
+
+        Exception e1 = exceptionEndpoint.getExchanges().get(0).getProperty(Exchange.EXCEPTION_CAUGHT, Exception.class);
+        Assert.assertTrue(e1 instanceof LightblueCamelConsumerException);
+        Assert.assertTrue(e1.getCause() instanceof LightblueException);
+        Assert.assertTrue(e1.getCause().getMessage().contains("Lightblue exception occurred"));
+
+        Exception e2 = exceptionEndpoint.getExchanges().get(1).getProperty(Exchange.EXCEPTION_CAUGHT, Exception.class);
+        Assert.assertTrue(e2 instanceof LightblueCamelConsumerException);
+        Assert.assertTrue(e2.getCause() instanceof LightblueException);
+        Assert.assertTrue(e2.getCause().getMessage().contains("Lightblue exception occurred"));
     }
 
 }

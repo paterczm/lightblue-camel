@@ -4,7 +4,7 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.impl.ScheduledPollConsumer;
 
-import com.redhat.lightblue.client.response.LightblueException;
+import com.redhat.lightblue.camel.exception.LightblueCamelConsumerException;
 import com.redhat.lightblue.client.response.LightblueResponse;
 
 /**
@@ -30,12 +30,10 @@ public class LightblueScheduledPollConsumer extends ScheduledPollConsumer {
                 return 0;
             }
             exchange.getIn().setBody(response);
-        } catch (LightblueException e) {
-            exchange.getIn().setBody(e.getLightblueResponse() == null ? e.getCause(): e.getLightblueResponse().getText());
-            exchange.setException(e);
         } catch (Exception e) {
-            exchange.setException(
-                    new Exception("Unexpected exception", e));
+            // routing didn't start yet, so we can't expect camel to handle this error
+            // set exception on exchange and pass it to camel
+            exchange.setException(new LightblueCamelConsumerException(e));
         }
 
         //  In case route has its own exception handling send message to next processor in the route.
