@@ -71,12 +71,18 @@ public class LightblueLockPolicy implements Policy {
 
                 exchange.getIn().setHeader(HEADER_LOCK_RESOURCE_ID, resourceId);
 
+                if (LOGGER.isDebugEnabled())
+                    LOGGER.debug("About to aquire lock on "+ java.net.URLDecoder.decode(resourceId, "UTF-8"));
+
                 if (lock.acquire(resourceId, ttl)) {
                     try {
+                        LOGGER.debug("Lock aquired, processing");
                         processor.process(exchange);
                     } finally {
                         try{
                             lock.release(resourceId);
+                            if (LOGGER.isDebugEnabled())
+                                LOGGER.debug("Releasing lock on "+ java.net.URLDecoder.decode(resourceId, "UTF-8"));
                         }
                         catch (Exception e) {
                             if (exchange.isFailed()) {
