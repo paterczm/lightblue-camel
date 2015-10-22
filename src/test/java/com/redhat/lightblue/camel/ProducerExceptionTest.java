@@ -46,8 +46,7 @@ public class ProducerExceptionTest extends AbstractProducerTest {
         Exception e = exceptionEndpoint.getExchanges().get(0).getProperty(Exchange.EXCEPTION_CAUGHT, Exception.class);
         Assert.assertTrue(e instanceof LightblueCamelProducerException);
         Assert.assertTrue(e.getCause() instanceof LightblueException);
-        Assert.assertEquals("Lightblue exception occurred: {\"status\":\"ERROR\",\"modifiedCount\":0,\"matchCount\":0,\"errors\":[{\"objectType\":\"error\",\"context\":\"rest/InsertCommand/user/insert(user:1.0.0)/getEntityMetadata(user:1.0.0)\",\"errorCode\":\"mongo-metadata:UnknownVersion\",\"msg\":\"user:1.0.0\"}]}", e.getCause().getMessage());
-
+        Assert.assertTrue(e.getCause().getMessage().contains("Lightblue exception occurred"));
     }
 
 }
