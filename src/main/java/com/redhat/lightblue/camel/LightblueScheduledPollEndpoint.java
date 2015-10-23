@@ -33,7 +33,9 @@ public class LightblueScheduledPollEndpoint extends ScheduledPollEndpoint {
 
     @Override
     public Consumer createConsumer(Processor processor) throws Exception {
-        return new LightblueScheduledPollConsumer(this, processor);
+        LightblueScheduledPollConsumer consumer = new LightblueScheduledPollConsumer(this, processor);
+        configureConsumer(consumer);
+        return consumer;
     }
 
     @Override
