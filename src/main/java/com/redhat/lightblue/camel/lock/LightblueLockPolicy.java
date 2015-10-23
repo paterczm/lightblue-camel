@@ -89,13 +89,13 @@ public class LightblueLockPolicy implements Policy {
                                 //Let the original exception bubble up, but log this one.
                                 LOGGER.error("Unexpected error while the route is already in a failed state.", e);
                             } else {
-                                throw e;
+                                throw new LightblueLockingException(e);
                             }
                         }
                     }
                 }
                 else{
-                    throw new LightblueLockingException("Unable to acquire a lock for: " + resourceId);
+                    LOGGER.debug("Unable to acquire a lock for: " + resourceId+" (it's taken)");
                 }
 
                 exchange.getIn().removeHeader(HEADER_LOCK_RESOURCE_ID);
