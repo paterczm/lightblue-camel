@@ -31,6 +31,7 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
     public ExpectedException exception = ExpectedException.none();
 
     protected ProducerTemplate successfulLockTemplate;
+    protected ProducerTemplate successfulLockObjectBatchTemplate;
     protected ProducerTemplate exceptionAfterLockTemplate;
     protected ProducerTemplate unableToAquireLockTemplate;
 
@@ -58,6 +59,9 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
         successfulLockTemplate = context.createProducerTemplate();
         successfulLockTemplate.setDefaultEndpointUri("direct:successfulLockTest");
 
+        successfulLockObjectBatchTemplate = context.createProducerTemplate();
+        successfulLockObjectBatchTemplate.setDefaultEndpointUri("direct:successfulLockObjectBatchTest");
+
         exceptionAfterLockTemplate = context.createProducerTemplate();
         exceptionAfterLockTemplate.setDefaultEndpointUri("direct:exceptionAfterLockTest");
 
@@ -72,6 +76,16 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
         successfulLockTemplate.sendBody("fake body");
 
         assertFalse(new LockRouteHelpers(getLightblueClient()).getLockingWithCalerId().ping("successfulLockTest"));
+
+        mockEndpoint.expectedMessageCount(1);
+        mockEndpoint.assertIsSatisfied();
+    }
+
+    @Test
+    public void successfulLockObjectBatchTest() throws Exception {
+        successfulLockObjectBatchTemplate.sendBody(new String[]{"a", "b", "c"});
+
+        assertFalse(new LockRouteHelpers(getLightblueClient()).getLockingWithCalerId().ping("successfulLockObjectBatchTest"));
 
         mockEndpoint.expectedMessageCount(1);
         mockEndpoint.assertIsSatisfied();
@@ -104,6 +118,7 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
         Set<RoutesBuilder> routes(Injector injector) {
             Set<RoutesBuilder> set = new HashSet<RoutesBuilder>();
             set.add(new SuccessfulLockRouteBuilder());
+            set.add(new SuccessfulLockObjectBatchRouteBuilder());
             set.add(new ExceptionAfterLockRouteBuilder());
             set.add(new UnableToAquireLockRouteBuilder());
             return set;
@@ -119,6 +134,20 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
                 .policy(new LightblueLockPolicy(
                         method(LockRouteHelpers.class, "getLockingWithCalerId"),
                         constant("successfulLockTest")))
+                .to("mock:result");
+        }
+
+    }
+
+    private static class SuccessfulLockObjectBatchRouteBuilder extends RouteBuilder {
+
+        @Override
+        public void configure() throws Exception {
+            from("direct:successfulLockObjectBatchTest")
+                .bean(new PickAtRandom<String>())
+                .policy(new LightblueLockPolicy(
+                        method(LockRouteHelpers.class, "getLockingWithCalerId"),
+                        constant("successfulLockObjectBatchTest")))
                 .to("mock:result");
         }
 
