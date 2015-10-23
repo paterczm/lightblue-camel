@@ -7,8 +7,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import javax.inject.Inject;
-
 import org.apache.camel.CamelContext;
 import org.apache.camel.CamelExecutionException;
 import org.apache.camel.ProducerTemplate;
@@ -26,8 +24,6 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.redhat.lightblue.camel.AbstractLightblueCamelTest;
-import com.redhat.lightblue.client.LightblueClient;
-import com.redhat.lightblue.client.Locking;
 
 public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
 
@@ -76,6 +72,9 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
         successfulLockTemplate.sendBody("fake body");
 
         assertFalse(new LockRouteHelpers(getLightblueClient()).getLockingWithCalerId().ping("successfulLockTest"));
+
+        mockEndpoint.expectedMessageCount(1);
+        mockEndpoint.assertIsSatisfied();
     }
 
     @Test
@@ -89,11 +88,11 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
     }
 
     @Test
-    public void unableToAquireLockTest() {
-        exception.expect(CamelExecutionException.class);
-        exception.expectCause(IsInstanceOf.<Throwable> instanceOf(LightblueLockingException.class));
-
+    public void unableToAquireLockTest() throws InterruptedException {
         unableToAquireLockTemplate.sendBody("fake body");
+
+        mockEndpoint.expectedMessageCount(0);
+        mockEndpoint.assertIsSatisfied();
     }
 
     private static class SuiteModule extends AbstractModule {
