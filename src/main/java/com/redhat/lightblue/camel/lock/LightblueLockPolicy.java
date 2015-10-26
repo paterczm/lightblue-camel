@@ -1,54 +1,66 @@
 package com.redhat.lightblue.camel.lock;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
+import java.util.UUID;
+
 import org.apache.camel.Exchange;
-import org.apache.camel.Expression;
 import org.apache.camel.Processor;
-import org.apache.camel.model.ExpressionNodeHelper;
 import org.apache.camel.model.ProcessorDefinition;
-import org.apache.camel.model.language.ExpressionDefinition;
 import org.apache.camel.spi.Policy;
 import org.apache.camel.spi.RouteContext;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.Lists;
 import com.redhat.lightblue.client.Locking;
+import com.redhat.lightblue.client.response.LightblueException;
 
 /**
- * Creates a lock (aka. acquire) in lightblue for each Exchange and then unlocks (aka. release) when finished.
- * If a lock cannot be acquired, then {@link Processor} will be skipped over.
+ * Creates a lock (aka. acquire) in lightblue for ONE of array elements (exchange body type is expected to be an array)
+ * and then unlocks (aka. release) when finished. It tries to lock a random element - if that fails, it will try another
+ * one until lock is successful or it runs out of elements. In latter case, {@link Processor} will be skipped over.
  *
- * @author dcrissman
+ *
+ * @author dcrissman, mpatercz
  */
-public class LightblueLockPolicy implements Policy {
+public class LightblueLockPolicy<T> implements Policy {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LightblueLockPolicy.class);
 
     /** Header key that will contain the current lock name used. This can be useful for ping() operations if they are needed.  */
     public final static String HEADER_LOCK_RESOURCE_ID = "LOCK_RESOURCE_ID";
 
-    private final Expression lockExpression;
-    private final Expression resourceExpression;
     private final Long ttl;
+    private static final Random randomGenerator = new Random();
+    private ResourceIdExtractor<T> resourceIdExtractor;
+    private Locking locking;
+    private String callerId = null;
 
     /**
-     * Uses the default ttl.
-     * @param lockExpression - {@link Expression} to obtain a Lightblue {@link Locking} instance.
-     * @param resourceExpression - {@link Expression} for determining the resourceId for a given Exchange.
+     * Tells {@link LightblueLockPolicy} how to figure out resourceId to lock given element.
+     *
+     * @author mpatercz
+     *
+     * @param <T>
      */
-    public LightblueLockPolicy(Expression lockExpression, Expression resourceExpression) {
-        this(lockExpression, resourceExpression, null);
+    public static interface ResourceIdExtractor<T> {
+        public String getResourceId(T resource);
     }
 
-    /**
-     *
-     * @param lockExpression - {@link Expression} to obtain a Lightblue {@link Locking} instance.
-     * @param resourceExpression - {@link Expression} for determining the resourceId for a given Exchange.
-     * @param ttl - time to live for the lock
-     */
-    public LightblueLockPolicy(Expression lockExpression, Expression resourceExpression, Long ttl) {
-        this.lockExpression = lockExpression;
-        this.resourceExpression = resourceExpression;
+    public LightblueLockPolicy(ResourceIdExtractor<T> resourceIdExtractor, Locking locking) {
+        this(resourceIdExtractor, locking, null);
+    }
+
+    public LightblueLockPolicy(ResourceIdExtractor<T> resourceIdExtractor, Locking locking, Long ttl) {
         this.ttl = ttl;
+        this.locking = locking;
+        this.resourceIdExtractor = resourceIdExtractor;
     }
 
     @Override
@@ -56,57 +68,116 @@ public class LightblueLockPolicy implements Policy {
         //Do Nothing!!
     }
 
+    public Locking getLocking() {
+        return locking;
+    }
+
+    /**
+     * Use for testing only.
+     *
+     * @param callerId
+     */
+    void setCallerId(String callerId) {
+        this.callerId = callerId;
+        locking.setCallerId(callerId);
+    }
+
     @Override
     public Processor wrap(final RouteContext routeContext, final Processor processor) {
-        final Expression routeLockExpression = createRouteExpression(routeContext, lockExpression);
-        final Expression routeResourceExpression = createRouteExpression(routeContext, resourceExpression);
 
         return new Processor() {
             @Override
             public void process(Exchange exchange) throws Exception {
-                final Locking lock = routeLockExpression.evaluate(exchange, Locking.class);
-                final String resourceId = routeResourceExpression.evaluate(exchange, String.class);
+                T[] elements;
+                try {
+                    elements = (T[])exchange.getIn().getBody();
+                } catch (ClassCastException e1) {
+                    throw new LightblueLockingException(e1);
+                }
 
-                //TODO NPEs
+                if (elements == null)
+                    throw new LightblueLockingException(new IllegalArgumentException("Expecting array"));
 
-                exchange.getIn().setHeader(HEADER_LOCK_RESOURCE_ID, resourceId);
+                if (elements.length == 0)
+                    throw new LightblueLockingException(new IllegalArgumentException("Expecting non empty array"));
 
-                if (LOGGER.isDebugEnabled())
-                    LOGGER.debug("About to aquire lock on "+ java.net.URLDecoder.decode(resourceId, "UTF-8"));
+                if (callerId == null)
+                    locking.setCallerId(URLEncoder.encode(routeContext.getRoute().getId()+"-"+UUID.randomUUID(), "UTF-8"));
 
-                if (lock.acquire(resourceId, ttl)) {
-                    try {
-                        LOGGER.debug("Lock aquired, processing");
-                        processor.process(exchange);
-                    } finally {
-                        try{
-                            lock.release(resourceId);
-                            if (LOGGER.isDebugEnabled())
-                                LOGGER.debug("Releasing lock on "+ java.net.URLDecoder.decode(resourceId, "UTF-8"));
-                        }
-                        catch (Exception e) {
-                            if (exchange.isFailed()) {
-                                //Let the original exception bubble up, but log this one.
-                                LOGGER.error("Unexpected error while the route is already in a failed state.", e);
-                            } else {
-                                throw new LightblueLockingException(e);
-                            }
+                Pair<T, String> pair = tryToLock(Lists.newArrayList(elements));
+
+                if (pair == null) {
+                    LOGGER.debug("Could not aquire a lock. Skipping processing.");
+                    return;
+                }
+
+                T lockedElement = pair.getLeft();
+                String lockedResourceId = pair.getRight();
+
+                exchange.getIn().setBody(lockedElement);
+
+                try {
+                    LOGGER.debug("Lock aquired, processing");
+                    exchange.getIn().setHeader(HEADER_LOCK_RESOURCE_ID, lockedResourceId);
+                    processor.process(exchange);
+                    exchange.getIn().removeHeader(HEADER_LOCK_RESOURCE_ID);
+                } finally {
+                    try{
+                        locking.release(lockedResourceId);
+                        if (LOGGER.isDebugEnabled())
+                            LOGGER.debug("Releasing lock on "+ java.net.URLDecoder.decode(lockedResourceId, "UTF-8"));
+                    }
+                    catch (Exception e) {
+                        if (exchange.isFailed()) {
+                            //Let the original exception bubble up, but log this one.
+                            LOGGER.error("Unexpected error while the route is already in a failed state.", e);
+                        } else {
+                            throw new LightblueLockingException(e);
                         }
                     }
                 }
-                else{
-                    LOGGER.debug("Unable to acquire a lock for: " + resourceId+" (it's taken)");
-                }
-
-                exchange.getIn().removeHeader(HEADER_LOCK_RESOURCE_ID);
             }
         };
 
     }
 
-    private Expression createRouteExpression(final RouteContext routeContext, final Expression expression){
-        ExpressionDefinition red = ExpressionNodeHelper.toExpressionDefinition(expression);
-        return red.createExpression(routeContext);
-    }
+    /**
+     * Tries to lock a random element from list provided.
+     *
+     * @param elements
+     * @return Locked element and resourceId used to lock or null if locking was not possible.
+     */
+    private Pair<T, String> tryToLock(List<T> elements) {
+        try {
 
+            while(true) {
+
+                int index;
+
+                if (elements.size() > 1) {
+                    index = randomGenerator.nextInt(elements.size());
+                } else {
+                    index = 0;
+                }
+
+                T element = elements.get(index);
+
+                String resourceId = resourceIdExtractor.getResourceId(element);
+
+                if (LOGGER.isDebugEnabled())
+                    LOGGER.debug("About to aquire lock on "+ java.net.URLDecoder.decode(resourceId, "UTF-8"));
+
+                if (locking.acquire(resourceId, ttl)) {
+                    return new ImmutablePair<T, String>(element, resourceId);
+                } else if (elements.size() > 1) {
+                    elements.remove(index);
+                } else {
+                    LOGGER.warn("Was not able to lock any of the elements. Batch too small?");
+                    return null;
+                }
+            }
+        } catch (UnsupportedEncodingException | LightblueException e) {
+            throw new LightblueLockingException(e);
+        }
+    }
 }

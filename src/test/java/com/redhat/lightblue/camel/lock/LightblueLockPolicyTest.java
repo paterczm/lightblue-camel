@@ -14,6 +14,7 @@ import org.apache.camel.RoutesBuilder;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.hamcrest.core.IsInstanceOf;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -24,20 +25,46 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.redhat.lightblue.camel.AbstractLightblueCamelTest;
+import com.redhat.lightblue.camel.lock.LightblueLockPolicy.ResourceIdExtractor;
+import com.redhat.lightblue.client.Locking;
 
 public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
+
+    public static final String DOMAIN = "camelTestDomain";
+    public static final String CALLER_ID = "fakeCallerId";
 
     @Rule
     public ExpectedException exception = ExpectedException.none();
 
+    protected ProducerTemplate testTemplate;
     protected ProducerTemplate successfulLockTemplate;
+    protected ProducerTemplate successfulLockObjectBatchTemplate;
     protected ProducerTemplate exceptionAfterLockTemplate;
     protected ProducerTemplate unableToAquireLockTemplate;
 
     protected MockEndpoint mockEndpoint;
 
+    Locking testLocking;
+
+    ResourceIdExtractor<String> stringIdExtractor = new ResourceIdExtractor<String>() {
+
+        @Override
+        public String getResourceId(String resource) {
+            return resource;
+        }
+    };
+
+    LightblueLockPolicy<String> lightblueLockPolicy =
+            new LightblueLockPolicy<String>(stringIdExtractor, getLightblueClient().getLocking(DOMAIN));
+
+
     public LightblueLockPolicyTest() throws Exception {
         super();
+
+        lightblueLockPolicy.setCallerId(CALLER_ID);
+
+        testLocking = getLightblueClient().getLocking(DOMAIN);
+        testLocking.setCallerId("TEST");
     }
 
     @Override
@@ -55,25 +82,40 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
 
     @Override
     protected void doSuiteCamelSetup(CamelContext context) {
-        successfulLockTemplate = context.createProducerTemplate();
-        successfulLockTemplate.setDefaultEndpointUri("direct:successfulLockTest");
+
+        testTemplate = context.createProducerTemplate();
+        testTemplate.setDefaultEndpointUri("direct:lockTest");
 
         exceptionAfterLockTemplate = context.createProducerTemplate();
         exceptionAfterLockTemplate.setDefaultEndpointUri("direct:exceptionAfterLockTest");
-
-        unableToAquireLockTemplate = context.createProducerTemplate();
-        unableToAquireLockTemplate.setDefaultEndpointUri("direct:unableToAquireLockTest");
 
         mockEndpoint = context.getEndpoint("mock:result", MockEndpoint.class);
     }
 
     @Test
     public void successfulLockTest() throws Exception {
-        successfulLockTemplate.sendBody("fake body");
+        mockEndpoint.expectedMessageCount(1);
+        mockEndpoint.expectedBodiesReceived("fakebody");
 
-        assertFalse(new LockRouteHelpers(getLightblueClient()).getLockingWithCalerId().ping("successfulLockTest"));
+        testTemplate.sendBody(new String[] {"fakebody"});
+
+        assertFalse(lightblueLockPolicy.getLocking().ping("fakebody"));
+
+        mockEndpoint.assertIsSatisfied();
+    }
+
+    @Test
+    public void successfulLockObjectBatchTest() throws Exception {
+        Assert.assertTrue(testLocking.acquire("a"));
+        Assert.assertTrue(testLocking.acquire("b"));
 
         mockEndpoint.expectedMessageCount(1);
+        mockEndpoint.expectedBodiesReceived("c");
+
+        testTemplate.sendBody(new String[]{"a", "b", "c"});
+
+        assertFalse(lightblueLockPolicy.getLocking().ping("c"));
+
         mockEndpoint.assertIsSatisfied();
     }
 
@@ -82,20 +124,23 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
         exception.expect(CamelExecutionException.class);
         exception.expectCause(IsInstanceOf.<Throwable> instanceOf(RuntimeException.class));
 
-        exceptionAfterLockTemplate.sendBody("fake body");
+        exceptionAfterLockTemplate.sendBody(new String[] {"fakebody"});
 
-        assertFalse(new LockRouteHelpers(getLightblueClient()).getLockingWithCalerId().ping("exceptionAfterLockTest"));
+        assertFalse(lightblueLockPolicy.getLocking().ping("fakebody"));
     }
 
     @Test
-    public void unableToAquireLockTest() throws InterruptedException {
-        unableToAquireLockTemplate.sendBody("fake body");
+    public void unableToAquireLockTest() throws Exception {
+        Assert.assertTrue(testLocking.acquire("fakebody"));
 
         mockEndpoint.expectedMessageCount(0);
+
+        testTemplate.sendBody(new String[] {"fakebody"});
+
         mockEndpoint.assertIsSatisfied();
     }
 
-    private static class SuiteModule extends AbstractModule {
+    class SuiteModule extends AbstractModule {
 
         @Override
         protected void configure() {}
@@ -103,50 +148,32 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
         @Provides
         Set<RoutesBuilder> routes(Injector injector) {
             Set<RoutesBuilder> set = new HashSet<RoutesBuilder>();
-            set.add(new SuccessfulLockRouteBuilder());
+            set.add(new TestRouteBuilder());
             set.add(new ExceptionAfterLockRouteBuilder());
-            set.add(new UnableToAquireLockRouteBuilder());
             return set;
         }
 
     }
 
-    private static class SuccessfulLockRouteBuilder extends RouteBuilder {
+
+    private class TestRouteBuilder extends RouteBuilder {
 
         @Override
         public void configure() throws Exception {
-            from("direct:successfulLockTest")
-                .policy(new LightblueLockPolicy(
-                        method(LockRouteHelpers.class, "getLockingWithCalerId"),
-                        constant("successfulLockTest")))
+            from("direct:lockTest")
+                .policy(lightblueLockPolicy)
                 .to("mock:result");
         }
 
     }
 
-    private static class ExceptionAfterLockRouteBuilder extends RouteBuilder{
+    private class ExceptionAfterLockRouteBuilder extends RouteBuilder{
         @Override
         public void configure() throws Exception {
             from("direct:exceptionAfterLockTest")
-                .policy(new LightblueLockPolicy(
-                        method(LockRouteHelpers.class, "getLockingWithCalerId"),
-                        constant("exceptionAfterLockTest")))
+                .policy(lightblueLockPolicy)
                 .throwException(new RuntimeException("Fake Exception"))
                 .to("mock:result");
         }
     }
-
-    private static class UnableToAquireLockRouteBuilder extends RouteBuilder{
-        private static final String RESOURCE = "unableToAquireLockTest";
-
-        @Override
-        public void configure() throws Exception {
-            from("direct:unableToAquireLockTest")
-                .policy(new LightblueLockPolicy(method(LockRouteHelpers.class, "getLocking"), constant(RESOURCE)))
-                //The second lock attempt will fail because the first has it with a different callerId.
-                .policy(new LightblueLockPolicy(method(LockRouteHelpers.class, "getLocking"), constant(RESOURCE)))
-                .to("mock:result");
-        }
-    }
-
 }
