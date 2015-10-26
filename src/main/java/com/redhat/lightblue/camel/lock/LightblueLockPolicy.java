@@ -142,7 +142,7 @@ public class LightblueLockPolicy<T> implements Policy {
     }
 
     /**
-     * Tries to lock a random element recursively.
+     * Tries to lock a random element from list provided.
      *
      * @param elements
      * @return Locked element and resourceId used to lock or null if locking was not possible.
@@ -150,29 +150,31 @@ public class LightblueLockPolicy<T> implements Policy {
     private Pair<T, String> tryToLock(List<T> elements) {
         try {
 
-            int index;
+            while(true) {
 
-            if (elements.size() > 1) {
-                index = randomGenerator.nextInt(elements.size());
-            } else {
-                index = 0;
-            }
+                int index;
 
-            T element = elements.get(index);
+                if (elements.size() > 1) {
+                    index = randomGenerator.nextInt(elements.size());
+                } else {
+                    index = 0;
+                }
 
-            String resourceId = resourceIdExtractor.getResourceId(element);
+                T element = elements.get(index);
 
-            if (LOGGER.isDebugEnabled())
-                LOGGER.debug("About to aquire lock on "+ java.net.URLDecoder.decode(resourceId, "UTF-8"));
+                String resourceId = resourceIdExtractor.getResourceId(element);
 
-            if (locking.acquire(resourceId, ttl)) {
-                return new ImmutablePair<T, String>(element, resourceId);
-            } else if (elements.size() > 1) {
-                elements.remove(index);
-                return tryToLock(elements);
-            } else {
-                LOGGER.warn("Was not able to lock any of the elements. Batch too small?");
-                return null;
+                if (LOGGER.isDebugEnabled())
+                    LOGGER.debug("About to aquire lock on "+ java.net.URLDecoder.decode(resourceId, "UTF-8"));
+
+                if (locking.acquire(resourceId, ttl)) {
+                    return new ImmutablePair<T, String>(element, resourceId);
+                } else if (elements.size() > 1) {
+                    elements.remove(index);
+                } else {
+                    LOGGER.warn("Was not able to lock any of the elements. Batch too small?");
+                    return null;
+                }
             }
         } catch (UnsupportedEncodingException | LightblueException e) {
             throw new LightblueLockingException(e);
