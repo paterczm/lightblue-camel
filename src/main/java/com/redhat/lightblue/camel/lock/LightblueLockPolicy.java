@@ -3,6 +3,7 @@ package com.redhat.lightblue.camel.lock;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Random;
+import java.util.UUID;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
@@ -99,7 +100,7 @@ public class LightblueLockPolicy<T> implements Policy {
                     throw new LightblueLockingException(new IllegalArgumentException("Expecting non empty array"));
 
                 if (callerId == null)
-                    locking.setCallerId(URLEncoder.encode(routeContext.getRoute().getId()+"-"+Thread.currentThread().getId(), "UTF-8"));
+                    locking.setCallerId(URLEncoder.encode(routeContext.getRoute().getId()+"-"+UUID.randomUUID(), "UTF-8"));
 
                 Pair<T, String> pair = tryToLock(elements);
 
