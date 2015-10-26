@@ -2,6 +2,8 @@ package com.redhat.lightblue.camel.lock;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
@@ -10,12 +12,12 @@ import org.apache.camel.Processor;
 import org.apache.camel.model.ProcessorDefinition;
 import org.apache.camel.spi.Policy;
 import org.apache.camel.spi.RouteContext;
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.Lists;
 import com.redhat.lightblue.client.Locking;
 import com.redhat.lightblue.client.response.LightblueException;
 
@@ -102,7 +104,7 @@ public class LightblueLockPolicy<T> implements Policy {
                 if (callerId == null)
                     locking.setCallerId(URLEncoder.encode(routeContext.getRoute().getId()+"-"+UUID.randomUUID(), "UTF-8"));
 
-                Pair<T, String> pair = tryToLock(elements);
+                Pair<T, String> pair = tryToLock(Lists.newArrayList(elements));
 
                 if (pair == null) {
                     LOGGER.debug("Could not aquire a lock. Skipping processing.");
@@ -145,18 +147,18 @@ public class LightblueLockPolicy<T> implements Policy {
      * @param elements
      * @return Locked element and resourceId used to lock or null if locking was not possible.
      */
-    private Pair<T, String> tryToLock(T[] elements) {
+    private Pair<T, String> tryToLock(List<T> elements) {
         try {
 
             int index;
 
-            if (elements.length > 1) {
-                index = randomGenerator.nextInt(elements.length);
+            if (elements.size() > 1) {
+                index = randomGenerator.nextInt(elements.size());
             } else {
                 index = 0;
             }
 
-            T element = elements[index];
+            T element = elements.get(index);
 
             String resourceId = resourceIdExtractor.getResourceId(element);
 
@@ -165,9 +167,9 @@ public class LightblueLockPolicy<T> implements Policy {
 
             if (locking.acquire(resourceId, ttl)) {
                 return new ImmutablePair<T, String>(element, resourceId);
-            } else if (elements.length > 1) {
-                T[] newElements = ArrayUtils.remove(elements, index);
-                return tryToLock(newElements);
+            } else if (elements.size() > 1) {
+                elements.remove(index);
+                return tryToLock(elements);
             } else {
                 LOGGER.warn("Was not able to lock any of the elements. Batch too small?");
                 return null;
