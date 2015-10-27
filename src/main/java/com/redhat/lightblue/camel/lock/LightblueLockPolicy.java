@@ -2,9 +2,10 @@ package com.redhat.lightblue.camel.lock;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 
 import org.apache.camel.Exchange;
@@ -150,6 +151,8 @@ public class LightblueLockPolicy<T> implements Policy {
     private Pair<T, String> tryToLock(List<T> elements) {
         try {
 
+            Set<String> cantLockResourceIds = new HashSet<String>();
+
             while(true) {
 
                 int index;
@@ -167,9 +170,21 @@ public class LightblueLockPolicy<T> implements Policy {
                 if (LOGGER.isDebugEnabled())
                     LOGGER.debug("About to aquire lock on "+ java.net.URLDecoder.decode(resourceId, "UTF-8"));
 
+                if (cantLockResourceIds.contains(resourceId)) {
+                    LOGGER.debug("Skipping resourceId={} because it was not available for locking previously", resourceId);
+                    if (elements.size() > 1) {
+                        elements.remove(index);
+                        continue;
+                    } else {
+                        LOGGER.warn("Was not able to lock any of the elements. Batch too small?");
+                        return null;
+                    }
+                }
+
                 if (locking.acquire(resourceId, ttl)) {
                     return new ImmutablePair<T, String>(element, resourceId);
                 } else if (elements.size() > 1) {
+                    cantLockResourceIds.add(resourceId);
                     elements.remove(index);
                 } else {
                     LOGGER.warn("Was not able to lock any of the elements. Batch too small?");
