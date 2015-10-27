@@ -18,6 +18,7 @@ import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.mockito.Mockito;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.inject.AbstractModule;
@@ -37,10 +38,8 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
     public ExpectedException exception = ExpectedException.none();
 
     protected ProducerTemplate testTemplate;
-    protected ProducerTemplate successfulLockTemplate;
-    protected ProducerTemplate successfulLockObjectBatchTemplate;
     protected ProducerTemplate exceptionAfterLockTemplate;
-    protected ProducerTemplate unableToAquireLockTemplate;
+    protected ProducerTemplate duplicatesTemplate;
 
     protected MockEndpoint mockEndpoint;
 
@@ -88,6 +87,10 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
 
         exceptionAfterLockTemplate = context.createProducerTemplate();
         exceptionAfterLockTemplate.setDefaultEndpointUri("direct:exceptionAfterLockTest");
+
+        duplicatesTemplate = context.createProducerTemplate();
+        duplicatesTemplate.setDefaultEndpointUri("direct:duplicatesTest");
+
 
         mockEndpoint = context.getEndpoint("mock:result", MockEndpoint.class);
     }
@@ -140,6 +143,21 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
         mockEndpoint.assertIsSatisfied();
     }
 
+    @Test
+    public void duplicatesTest() throws Exception {
+        mockEndpoint.expectedMessageCount(0);
+
+        // false means lock already taken
+        Mockito.when(duplicatesLocking.acquire(Mockito.anyString(), Mockito.anyLong())).thenReturn(false);
+
+        duplicatesTemplate.sendBody(new String[] {"a", "a", "a", "a", "a"});
+
+        mockEndpoint.assertIsSatisfied();
+
+        // confirm there was only one attempt to lock, because all elements are the same
+        Mockito.verify(duplicatesLocking, Mockito.times(1)).acquire(Mockito.anyString(), Mockito.anyLong());
+    }
+
     class SuiteModule extends AbstractModule {
 
         @Override
@@ -150,6 +168,7 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
             Set<RoutesBuilder> set = new HashSet<RoutesBuilder>();
             set.add(new TestRouteBuilder());
             set.add(new ExceptionAfterLockRouteBuilder());
+            set.add(new DuplicatesRouteBuilder());
             return set;
         }
 
@@ -173,6 +192,17 @@ public class LightblueLockPolicyTest extends AbstractLightblueCamelTest {
             from("direct:exceptionAfterLockTest")
                 .policy(lightblueLockPolicy)
                 .throwException(new RuntimeException("Fake Exception"))
+                .to("mock:result");
+        }
+    }
+
+    Locking duplicatesLocking = Mockito.mock(Locking.class);
+
+    private class DuplicatesRouteBuilder extends RouteBuilder{
+        @Override
+        public void configure() throws Exception {
+            from("direct:duplicatesTest")
+                .policy(new LightblueLockPolicy<String>(stringIdExtractor, duplicatesLocking))
                 .to("mock:result");
         }
     }
