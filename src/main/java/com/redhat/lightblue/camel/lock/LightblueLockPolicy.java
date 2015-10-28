@@ -34,8 +34,8 @@ public class LightblueLockPolicy<T> implements Policy {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LightblueLockPolicy.class);
 
-    /** Header key that will contain the current lock name used. This can be useful for ping() operations if they are needed.  */
-    public final static String HEADER_LOCK_RESOURCE_ID = "LOCK_RESOURCE_ID";
+    /** Property key that will contain the current lock name used. This can be useful for ping() operations if they are needed.  */
+    public final static String PROPERTY_LOCK_RESOURCE_ID = "LOCK_RESOURCE_ID";
 
     private final Long ttl;
     private static final Random randomGenerator = new Random();
@@ -119,9 +119,8 @@ public class LightblueLockPolicy<T> implements Policy {
 
                 try {
                     LOGGER.debug("Lock aquired, processing");
-                    exchange.getIn().setHeader(HEADER_LOCK_RESOURCE_ID, lockedResourceId);
+                    exchange.setProperty(PROPERTY_LOCK_RESOURCE_ID, lockedResourceId);
                     processor.process(exchange);
-                    exchange.getIn().removeHeader(HEADER_LOCK_RESOURCE_ID);
                 } finally {
                     try{
                         locking.release(lockedResourceId);
